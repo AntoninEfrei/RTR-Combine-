@@ -102,8 +102,8 @@ def get_prio_position_draft(df_draft,team_name):
 
     
     desired_order = ['TOP', 'JGL', 'MID', 'ADC', 'SUPP']
-    most_picked_champions = df_blue['champion'].value_counts()
-    position_b1_pick = df_blue[df_blue['pickOrder'] == 1]['position'].value_counts()
+    most_blue_pick_champions = df_blue['champion'].value_counts() # ??????????
+    position_b1_pick = df_blue[df_blue['pickOrder'] == 1]['champion'].value_counts()
     position_r3_pick = df_red[df_red['pickOrder'] == 3]['champion'].value_counts()
     position_r5_pick = df_red[df_red['pickOrder'] == 5]['champion'].value_counts()
 
@@ -119,9 +119,10 @@ def get_prio_position_draft(df_draft,team_name):
     matrix_counts_red = df_red.pivot_table(index='position', columns='Red Side Picks', aggfunc='size', fill_value=0, observed = True)
     matrix_percentages_red = (matrix_counts_red.div(matrix_counts_red.sum(axis=1), axis=0) * 100).round(2)
 
-    return most_picked_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red
+    return most_blue_pick_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red
 
 def get_spring24_geng_draft():
+    
     site = Site('lol.fandom.com', path="/")
     tournament = "LCK/2024 Season/Spring Season"
     team = 'Gen.G'
@@ -312,14 +313,14 @@ def player_stats(df):
     vision_stats_dict = {
         'Avg Wards Placed': [df['Wards Placed'].mean()],
         'Avg Wards Killed': [df['Wards Killed'].mean()],
-        'Avg Control Ward Lifetime': [df['Pink Ward Time Coverage'].mean()],
+        'Avg Control Ward Lifetime %': [df['Pink Ward Time Coverage'].mean()*100],
         'Avg Control Wards Bought': [df['Control Wards Bought'].mean()],
         'Avg Vision Score/min': [df['Vision Score Per Minute'].mean()]
     }
     
     vision_stats_df = pd.DataFrame(vision_stats_dict)
     vision_stats_df = vision_stats_df.set_index('Avg Wards Placed')
-    return player_stats_df, vision_stats_df
+    return player_stats_df.round(1), vision_stats_df.round(1)
 
     
 
@@ -347,7 +348,9 @@ st.set_page_config(layout="wide")
 with st.sidebar.expander("Navigation"):
     # Display checkboxes for options within the expander
 
-    page = st.radio('Navigation',["Home Page","Reporting Draft","Reporting In Game","SoloQ Overview","Player Focus"])
+    page = st.radio('Choose a page',["Home Page","Draft Stats","Player Focus","Reporting In Game","SoloQ Overview"])
+
+#### PAGES ##### 
 
 if page == 'Home Page':
     st.markdown(
@@ -369,25 +372,37 @@ if page == 'Home Page':
     st.write('Shoutout to RTR Combine project that offers us opportunities to work and showcase it. It has been a pleasure to work in this case study.')
     st.write('Any feedbacks or recommendations is warmly welcome - do not hesitate on discord (Gulldiz) or elsewhere')
 
-elif page == "Reporting Draft":
+elif page == "Draft Stats":
 
     df_spring24_geng_draft = get_spring24_geng_draft()
-    st.write(df_spring24_geng_draft)
+
 
     st.title('Reporting Gen.G Draft')
-    
+    col_tab1,col_tab2,col_tab3,col_tab4 = st.columns([3,3,3,5])
+
     #scope on the choosen data
     list_competitions = df_spring24_geng_draft['ShownName'].unique().tolist()
     competition_choice = st.sidebar.multiselect('Choose Step',list_competitions, default = list_competitions)
     df_spring24_geng_draft_scope = df_spring24_geng_draft[df_spring24_geng_draft['ShownName'].isin(competition_choice)]
 
+
     # get the draft datas
-    most_picked_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red = get_prio_position_draft(df_spring24_geng_draft,'Gen.G')
-    
-    st.write(most_picked_champions)
+    most_blue_pick_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red = get_prio_position_draft(df_spring24_geng_draft_scope,'Gen.G')
+    # MOST PICKED ??? MOST B1 POSITON ?? 
+ 
     #display matrixes
     st.write(matrix_percentages_blue)
     st.write(matrix_percentages_red)
+
+    with col_tab1:
+        st.write('Most pick B1')
+        st.write(position_b1_pick)
+    with col_tab2:
+        st.write('Most pick R3')
+        st.write(position_r3_pick)
+    with col_tab3:
+        st.write('Most pick R5')
+        st.write(position_r5_pick)
 
 elif page == "Reporting In Game":
     
