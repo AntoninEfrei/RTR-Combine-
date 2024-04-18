@@ -2,7 +2,7 @@ import streamlit as st
 import json
 
 # DATA IMPORTS
-with open("list_game_timeline_geng_compet.json",'r') as file:
+with open("list_game_end_geng_compet.json",'r') as file:
     list_game_end_geng_compet = json.load('file')
 with open("list_game_timeline_geng_compet.json",'r') as file:
     list_game_timeline_geng_compet = json.load('file')
