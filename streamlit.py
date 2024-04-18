@@ -1,5 +1,11 @@
 import streamlit as st
+import json
 
+# DATA IMPORTS
+with open("list_game_timeline_geng_compet.json",'r') as file:
+    list_game_end_geng_compet = json.load('file')
+with open("list_game_timeline_geng_compet.json",'r') as file:
+    list_game_timeline_geng_compet = json.load('file')
 
 # Stylish header
 st.markdown(
@@ -10,6 +16,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 page = st.sidebar.radio("Navigation", ("Home Page","Reporting Draft","Reporting In Game","SoloQ Overview"))
@@ -32,4 +39,4 @@ elif page == "Reporting In Game":
     
 elif page == "SoloQ Overview":
    
-   st.title('Reponrting SoloQ')
+   st.title('Reporting SoloQ')
