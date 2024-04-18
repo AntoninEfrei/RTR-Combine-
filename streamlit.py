@@ -3,8 +3,7 @@ import json
 import pandas as pd
 from mwclient import Site
 import json 
-import requests
-
+import os
 
 # FUNCTIONS 
 def get_red_blue_df(df,teamname):
@@ -322,7 +321,121 @@ def player_stats(df):
     vision_stats_df = vision_stats_df.set_index('Avg Wards Placed')
     return player_stats_df.round(1), vision_stats_df.round(1)
 
+def create_heatmap(game,output:str="heatmap",map_file:str="Image/map.png",debug:bool=False):
+    #Valeurs correspondantes au dimension de la map
+    x_min = -120 
+    x_max = 14870
+    y_min = -120
+    y_max = 14980
+
+    #Nombre de colone pour les histogrames
+    bins=1000 #normalement il est optimisé mais sinon il faut le toucher
+    #Variable d'ecart type
+    sigma=15
+    #Variable de localisation de la heatmap
+    location_heatmap = 'tmp/heatmap.png'
+
+    if debug:
+        print(f"[+] Init HeatMap creation with the param :\nx_min:{x_min} | x_max:{x_max}\ny_min:{y_min} | y_max:{y_max}\nsigma:{sigma} | bins:{bins}\nlocation_heatmap:{location_heatmap} | map_file:{map_file}")
+
+    position_x = []
+    position_y = []
+    for i in range(0,len(game.kills)):
+        x,y = game.kills[i].getPosition()
+        position_x.append(x)
+        position_y.append(y)
+
+    if debug:
+        print(f"[+] End attribution variable position\nposition_x:{position_x}\nposition_y:{position_y}")
+        print("[+] Caculate the heatmap filter")
+
+    #Calcul de la carte de chaleurs
+    heatmap, xedges, yedges = np.histogram2d(position_x, position_y, bins=bins, range=[[x_min,x_max],[y_min,y_max]])
+    heatmap = gaussian_filter(heatmap, sigma=sigma)
     
+    if debug:
+        print("[+] HeatMap Caculated")
+
+    #Création de l'image de la heatmap sans modification
+    if debug:
+        print("[+] Heatmap filter image creation")
+    img = heatmap.T
+
+    fig, ax1 = plt.subplots()
+    ax1.imshow(img, extent=[x_min,x_max,y_min,y_max], origin='lower', cmap=cm.jet,alpha=0.8)
+
+    plt.axis('off')
+    
+    plt.savefig(location_heatmap, bbox_inches='tight', pad_inches=0,dpi=1000)
+
+    if debug:
+        print(f"[+] Image saved at : {location_heatmap}")
+    
+    #Petit moment pour que le fichier du filtre gaussien soit bien crée
+    time.sleep(1)
+
+    #Supprésion du fond
+    if debug:
+        print(f'[+] Background Suppression')
+    
+    #Ouverture du filtre gaussien enregistré plus tot
+    im = Image.open(location_heatmap)
+    
+    if debug:
+        print('[+] Conversion to RGBA')
+    #Convertissement de l'image en tableau contentant le code RGB de l'image
+    im = im.convert('RGBA')
+
+    data = np.array(im)
+    
+    if debug:
+        print("[+] Loop delete blue")
+    # Boucle pour enlever les nuances de bleu
+    for i in range (150,230):
+        rgb = data[:,:,:3]
+        color = [51, 51, i]
+        white = [255,255,255,255]
+        mask = np.all(rgb == color, axis = -1)
+        # On change les pixels correspondants en blanc
+        data[mask] = white
+    
+    if debug:
+        print("[+] Loop end\n[+] New Image Creation")
+
+    #Création de la nouvelle image
+    img = Image.fromarray(data)
+    datas = img.getdata()
+    newData = []
+    for item in datas:
+        if item[0] == 255 and item[1] == 255 and item[2] == 255:
+            newData.append((255, 255, 255, 0))
+        else:
+            newData.append(item)
+    img.putdata(newData)
+    if debug:
+        print('[+] Creation finished')
+        img.save("tmp/heatmap_transparent.png", "PNG")
+        print('[+] Saving the heatmap with transparent background')
+
+    #Ouverture de l'image de fond
+    if debug:
+        print('[+] Oppening the background map')    
+    base_image = Image.open(map_file)
+    #Récupération des dimmensions de l'image
+    width, height = base_image.size
+
+    # Attribution de l'image de mask
+    mask_image = img
+    # Resize the mask image to 512x512
+    mask_image = mask_image.resize((width, height))
+
+    # Ajout de l'image du mask au dessus de l'image de la map
+    base_image.paste(mask_image, (0,0), mask = mask_image)
+    if debug:
+        print("[+] Saving the output file")
+    if debug == False:
+        os.remove("heatmap.png")
+    base_image.save(str(output)+'.png')    
 
 # DATA IMPORTS
 
@@ -369,8 +482,15 @@ if page == 'Home Page':
     st.markdown('')
 
     
+    
+    st.markdown('')
+    st.markdown('')
+    st.markdown('')
+    st.markdown('')
+    st.markdown('')
     st.write('Shoutout to RTR Combine project that offers us opportunities to work and showcase it. It has been a pleasure to work in this case study.')
     st.write('Any feedbacks or recommendations is warmly welcome - do not hesitate on discord (Gulldiz) or elsewhere')
+    st.markdown('Competitive Data (Drafts) from [Leaguepedia API](https://lol.fandom.com/wiki/Category:Developer_Documentation)  & In game data from [Riot APi](https://developer.riotgames.com/) nothing reported by hand.')
 
 elif page == "Draft Stats":
 
@@ -384,7 +504,6 @@ elif page == "Draft Stats":
     list_competitions = df_spring24_geng_draft['ShownName'].unique().tolist()
     competition_choice = st.sidebar.multiselect('Choose Step',list_competitions, default = list_competitions)
     df_spring24_geng_draft_scope = df_spring24_geng_draft[df_spring24_geng_draft['ShownName'].isin(competition_choice)]
-
 
     # get the draft datas
     most_blue_pick_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red = get_prio_position_draft(df_spring24_geng_draft_scope,'Gen.G')
@@ -410,16 +529,21 @@ elif page == "Reporting In Game":
   
 elif page == "SoloQ Overview":
    
-   st.title('Reporting SoloQ')
+    st.title('Reporting SoloQ')
+
+    game = list_game_timeline_geng_compet[0]
+    st.write(game['frames'][0])
+
+
+    create_heatmap(list_game_timeline_geng_compet[0])
+
+
+
+
 
 elif page == "Player Focus":
-
-
-    
-
+ 
     col_tab1,col_tab2 = st.columns([3,8])
-
-
    
     with col_tab1:
 
@@ -428,21 +552,23 @@ elif page == "Player Focus":
             player = st.radio("Players", list_players)
 
 
+
     df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players) #from list of dict to all GenG players stats only
     df_players_stats_scope = df_players_stats[df_players_stats['Player'] == player] #focus on choosen player
     
     with col_tab2:
-        # PLAYER WISE FOCUS
-   
+
+        # PLAYER WISE STATS
         df_player, df_player_vision = player_stats(df_players_stats_scope)
-        st.write('Player stats')
+        st.markdown(f"<h2 style='text-align: center;'>{player} stats</h2>", unsafe_allow_html=True)
+        st.write('Global Stats')
         st.write(df_player)
         
-        st.write('Vision stats')
+        st.write('Vision Stats')
         st.write(df_player_vision)
 
 
-    # CHAMPIONS WISE FOCUS
+    # CHAMPIONS WISE STATS
     st.title('Champion Focus')
     st.write('Champion Stats')
     df_player_champion_stats = player_champion_stats(df_players_stats_scope)
