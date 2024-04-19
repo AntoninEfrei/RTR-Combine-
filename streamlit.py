@@ -4,6 +4,12 @@ import pandas as pd
 from mwclient import Site
 import json 
 import os
+import numpy as np 
+from scipy.ndimage import gaussian_filter
+import matplotlib.pyplot as plt 
+from matplotlib import cm 
+from PIL import Image
+import time
 
 # FUNCTIONS 
 def get_red_blue_df(df,teamname):
@@ -166,6 +172,58 @@ def get_spring24_geng_draft():
 
  ### DATA IMPORTS
 
+def get_df_event(list_game_timeline_geng_compet):
+
+    # condition :  game['frames'][i]['events'][j]['type'] == 'CHAMPION_KILL'
+    # position : game['frames'][i]['events'][j]['position']['x'] & game['frames'][i]['events'][j]['position']['y']
+    # killer : game['frames'][i]['events'][j]['killerId'] /// list participants ids assists : game['frames'][i]['events'][j]['assistingParticipantIds'] 
+    # deaths : game['frames'][i]['events'][j]['victimId']
+    # timestamp : game['frames'][i]['events'][j]['timestamp']
+
+
+    list_dict_events = []
+
+    for game in list_game_timeline_geng_compet:
+        
+        participants = game['participants']
+
+        try:
+            id_to_puuid = {participant['participantId']: participant['puuid'] for participant in participants}
+
+            def to_puuid(participant_id):
+                # Swap participant IDs to PUUIDs
+                return id_to_puuid.get(participant_id)
+            
+            def to_puuid_lists(participant_ids):
+                # Swap participant IDs to PUUIDs
+                puuids = [id_to_puuid[participant_id] for participant_id in participant_ids]
+                return puuids
+
+            
+            for i in range(len(game['frames'])):
+
+                for j in range(len(game['frames'][i]['events'])):
+                    dict_events = {}
+                    if game['frames'][i]['events'][j]['type'] == 'CHAMPION_KILL':
+                        
+                        dict_events['game_id'] = game['gameId']
+                        dict_events['event_type'] = game['frames'][i]['events'][j]['type']
+                        dict_events['killer'] = to_puuid(game['frames'][i]['events'][j]['killerId'])
+                        dict_events['deaths'] = to_puuid(game['frames'][i]['events'][j]['victimId'])
+                        try:
+                            dict_events['assists'] = to_puuid_lists(game['frames'][i]['events'][j]['assistingParticipantIds'])
+                        except KeyError:
+                            dict_events['assists'] = None
+                        dict_events['x'] = game['frames'][i]['events'][j]['position']['x']
+                        dict_events['y'] = game['frames'][i]['events'][j]['position']['y']
+                        dict_events['timestamp'] = game['frames'][i]['events'][j]['timestamp'] / 60000
+                        list_dict_events.append(dict_events)     
+
+        except KeyError:
+            print(game['gameId'])
+
+    return pd.DataFrame(list_dict_events)
+
 def get_games_player_stats(list_game_end_geng_compet, list_players):
     # Initialize empty lists to store data
     players = []
@@ -321,35 +379,31 @@ def player_stats(df):
     vision_stats_df = vision_stats_df.set_index('Avg Wards Placed')
     return player_stats_df.round(1), vision_stats_df.round(1)
 
-def create_heatmap(game,output:str="heatmap",map_file:str="Image/map.png",debug:bool=False):
+def create_heatmap(position_x,position_y,output:str="heatmap",map_file:str="Image/map.png",debug:bool=False):
     #Valeurs correspondantes au dimension de la map
     x_min = -120 
     x_max = 14870
     y_min = -120
     y_max = 14980
 
+    
     #Nombre de colone pour les histogrames
     bins=1000 #normalement il est optimisé mais sinon il faut le toucher
     #Variable d'ecart type
     sigma=15
     #Variable de localisation de la heatmap
-    location_heatmap = 'tmp/heatmap.png'
+    location_heatmap = 'Image/heatmap.png'
 
     if debug:
         print(f"[+] Init HeatMap creation with the param :\nx_min:{x_min} | x_max:{x_max}\ny_min:{y_min} | y_max:{y_max}\nsigma:{sigma} | bins:{bins}\nlocation_heatmap:{location_heatmap} | map_file:{map_file}")
-
-    position_x = []
-    position_y = []
-    for i in range(0,len(game.kills)):
-        x,y = game.kills[i].getPosition()
-        position_x.append(x)
-        position_y.append(y)
 
     if debug:
         print(f"[+] End attribution variable position\nposition_x:{position_x}\nposition_y:{position_y}")
         print("[+] Caculate the heatmap filter")
 
     #Calcul de la carte de chaleurs
+    st.write(len(position_x), len(position_y))
+
     heatmap, xedges, yedges = np.histogram2d(position_x, position_y, bins=bins, range=[[x_min,x_max],[y_min,y_max]])
     heatmap = gaussian_filter(heatmap, sigma=sigma)
     
@@ -414,7 +468,7 @@ def create_heatmap(game,output:str="heatmap",map_file:str="Image/map.png",debug:
     img.putdata(newData)
     if debug:
         print('[+] Creation finished')
-        img.save("tmp/heatmap_transparent.png", "PNG")
+        img.save("Image/map.png", "PNG")
         print('[+] Saving the heatmap with transparent background')
 
     #Ouverture de l'image de fond
@@ -444,6 +498,7 @@ with open("list_game_end_geng_compet.json",'r') as file:
 with open("list_game_timeline_geng_compet.json",'r') as file:
     list_game_timeline_geng_compet = json.load(file)
 
+df_events = pd.read_csv('df_event_v0_not_all_data.csv')
 list_players = ['GENKiin','GENCanyon','GENChovy','GENPeyz','GENLehends']
 
 Kiin_puuid = "Vpq3Y6Nns_bME-adpgmXfI89CIH3k0MCfDbrWZN2ASTuE8FlBit7rwbz3kzy_t4T8kgpGAo51asizA"
@@ -531,13 +586,13 @@ elif page == "SoloQ Overview":
    
     st.title('Reporting SoloQ')
 
-    game = list_game_timeline_geng_compet[0]
-    st.write(game['frames'][0])
+    df_events = get_df_event(list_game_timeline_geng_compet)
+    df_events['x'] = df_events['x']
+    df_events['y'] = df_events['y']
 
-
-    create_heatmap(list_game_timeline_geng_compet[0])
-
-
+    
+    create_heatmap(df_events['x'].tolist(),df_events['y'].tolist(), debug = False)
+    
 
 
 
