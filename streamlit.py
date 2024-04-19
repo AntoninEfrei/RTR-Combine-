@@ -414,7 +414,7 @@ def player_stats(df):
     vision_stats_df = vision_stats_df.set_index('Avg Wards Placed')
     return player_stats_df.round(1), vision_stats_df.round(1)
 
-def create_heatmap(position_x,position_y,output:str="heatmap",map_file:str="Image/map.png",debug:bool=False):
+def create_heatmap(position_x,position_y,output:str="output",map_file:str="Image/map.png",debug:bool=False):
     #Valeurs correspondantes au dimension de la map
     x_min = -120 
     x_max = 14870
@@ -425,7 +425,7 @@ def create_heatmap(position_x,position_y,output:str="heatmap",map_file:str="Imag
     #Nombre de colone pour les histogrames
     bins=1000 #normalement il est optimisé mais sinon il faut le toucher
     #Variable d'ecart type
-    sigma=15
+    sigma=12
     #Variable de localisation de la heatmap
     location_heatmap = 'Image/heatmap.png'
 
@@ -449,7 +449,7 @@ def create_heatmap(position_x,position_y,output:str="heatmap",map_file:str="Imag
     img = heatmap.T
 
     fig, ax1 = plt.subplots()
-    ax1.imshow(img, extent=[x_min,x_max,y_min,y_max], origin='lower', cmap=cm.jet,alpha=0.8)
+    ax1.imshow(img, extent=[x_min,x_max,y_min,y_max], origin='lower', cmap=cm.jet,alpha=0.8) # ne pas changer
 
     plt.axis('off')
     
@@ -501,7 +501,7 @@ def create_heatmap(position_x,position_y,output:str="heatmap",map_file:str="Imag
     img.putdata(newData)
     if debug:
         print('[+] Creation finished')
-        img.save("Image/map.png", "PNG")
+        img.save("Image/heatmap_transparent.png", "PNG")
         print('[+] Saving the heatmap with transparent background')
 
     #Ouverture de l'image de fond
@@ -690,7 +690,7 @@ elif page == "SoloQ Overview":
     st.write(df_events)
 
 
-    create_heatmap(df_events['x'].tolist(),df_events['y'].tolist(), debug = False)
+    create_heatmap(df_events['x'].tolist(),df_events['y'].tolist(), debug = True)
     st.write('Good')
 
 elif page == "Player Focus":
