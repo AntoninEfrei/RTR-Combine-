@@ -11,7 +11,8 @@ from matplotlib import cm
 from PIL import Image
 import time
 
-# FUNCTIONS 
+################# FUNCTIONS #####################################################################################
+
 def get_red_blue_df(df,teamname):
     #function that from the df_lec and a teamname gets blue and red side data as follow : 'Championplayed, pickOrder, pickOrder_2 (B1/B2/B3...) Position in game'
 
@@ -78,16 +79,16 @@ def get_red_blue_df(df,teamname):
     return draft_red,draft_blue
 
 def get_prio_position_draft(df_draft,team_name):
-    
+
     #get the list as dict (pickbyroleorder)
     for index, row in df_draft.iterrows():
         blue_champions_dict = {}
         red_champions_dict = {}
- 
+
         # Iterate over the champions in the "BluePicksByRoleOrder" column
         for champion in row['BluePicksByRoleOrder']:
-    
-            for column_index, value in enumerate(row):
+
+            for column_index,value in enumerate(row):
 
                 if champion == df_draft.iloc[index,column_index]:
                     
@@ -124,7 +125,7 @@ def get_prio_position_draft(df_draft,team_name):
     matrix_counts_red = df_red.pivot_table(index='position', columns='Red Side Picks', aggfunc='size', fill_value=0, observed = True)
     matrix_percentages_red = (matrix_counts_red.div(matrix_counts_red.sum(axis=1), axis=0) * 100).round(2)
 
-    return most_blue_pick_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red
+    return most_blue_pick_champions, position_b1_pick.reset_index(drop = False), position_r3_pick.reset_index(drop = False), position_r5_pick.reset_index(drop = False), matrix_counts_blue, matrix_counts_red, matrix_percentages_blue.round(1), matrix_percentages_red.round(1)
 
 def get_spring24_geng_draft():
     
@@ -184,48 +185,77 @@ def get_df_event(list_game_timeline_geng_compet):
     list_dict_events = []
 
     for game in list_game_timeline_geng_compet:
-        
-        participants = game['participants']
+     
+        for i in range(len(game['frames'])):
 
-        try:
-            id_to_puuid = {participant['participantId']: participant['puuid'] for participant in participants}
-
-            def to_puuid(participant_id):
-                # Swap participant IDs to PUUIDs
-                return id_to_puuid.get(participant_id)
-            
-            def to_puuid_lists(participant_ids):
-                # Swap participant IDs to PUUIDs
-                puuids = [id_to_puuid[participant_id] for participant_id in participant_ids]
-                return puuids
-
-            
-            for i in range(len(game['frames'])):
-
-                for j in range(len(game['frames'][i]['events'])):
-                    dict_events = {}
-                    if game['frames'][i]['events'][j]['type'] == 'CHAMPION_KILL':
-                        
-                        dict_events['game_id'] = game['gameId']
-                        dict_events['event_type'] = game['frames'][i]['events'][j]['type']
-                        dict_events['killer'] = to_puuid(game['frames'][i]['events'][j]['killerId'])
-                        dict_events['deaths'] = to_puuid(game['frames'][i]['events'][j]['victimId'])
-                        try:
-                            dict_events['assists'] = to_puuid_lists(game['frames'][i]['events'][j]['assistingParticipantIds'])
-                        except KeyError:
-                            dict_events['assists'] = None
-                        dict_events['x'] = game['frames'][i]['events'][j]['position']['x']
-                        dict_events['y'] = game['frames'][i]['events'][j]['position']['y']
-                        dict_events['timestamp'] = game['frames'][i]['events'][j]['timestamp'] / 60000
-                        list_dict_events.append(dict_events)     
-
-        except KeyError:
-            continue
+            for j in range(len(game['frames'][i]['events'])):
+                dict_events = {}
+                if game['frames'][i]['events'][j]['type'] == 'CHAMPION_KILL':
+                    
+                    dict_events['game_id'] = str(game['gameId'])
+                    dict_events['event_type'] = game['frames'][i]['events'][j]['type']
+                    dict_events['killer'] = game['frames'][i]['events'][j]['killerId']
+                    dict_events['deaths'] = game['frames'][i]['events'][j]['victimId']
+                    try:
+                        dict_events['assists'] = game['frames'][i]['events'][j]['assistingParticipantIds']
+                    except KeyError:
+                        dict_events['assists'] = None
+                    dict_events['x'] = game['frames'][i]['events'][j]['position']['x']
+                    dict_events['y'] = game['frames'][i]['events'][j]['position']['y']
+                    dict_events['timestamp'] = game['frames'][i]['events'][j]['timestamp'] / 60000
+                    list_dict_events.append(dict_events)     
 
     return pd.DataFrame(list_dict_events)
 
+def map_id_to_names(df_event,df_players_stats):
+
+    grouped = df_players_stats.groupby('GameId')
+
+    # Initialize an empty dictionary to store results
+    game_players_dict = {}
+
+    # Iterate over each group
+    for game_id, group_df in grouped:
+        # Extracting the first unique values of "Player" for each group
+        unique_players = group_df['Player'].drop_duplicates().tolist()
+        # Storing the result in the dictionary
+        game_players_dict[game_id.split("_")[1]] = unique_players
+
+
+    df_events['killer'] = df_events['killer'].astype(object)
+    df_events['deaths'] = df_events['deaths'].astype(object)
+
+    for index, row in df_events.iterrows():
+        # Get the gameId for the current row
+        game_id = row['game_id']
+        
+        killer_id = row['killer']-1
+        killer_index = int(killer_id) if killer_id is not None else None  # Convert to int if not None
+  
+        if killer_index is not None and killer_index < len(game_players_dict.get(game_id, [])):
+            df_events.at[index, 'killer'] = game_players_dict[game_id][killer_index]
+        
+        # Replace 'deaths' ID with player name
+        deaths_id = row['deaths']-1
+        deaths_index = int(deaths_id) if deaths_id is not None else None  # Convert to int if not None
+        if deaths_index is not None and deaths_index < len(game_players_dict.get(game_id, [])):
+            df_events.at[index, 'deaths'] = game_players_dict[game_id][deaths_index]
+            
+        # Replace 'assists' IDs with player names
+        assists_ids  = row['assists']
+        try: 
+            assists_names = [game_players_dict[game_id][int(player_id)-1] for player_id in assists_ids if int(player_id) < len(game_players_dict.get(game_id, []))]
+        except:
+            assists_names = None
+    
+        df_events.at[index, 'assists'] = assists_names
+
+
+    return df_events
+
 def get_games_player_stats(list_game_end_geng_compet, list_players):
     # Initialize empty lists to store data
+    game_id = []
     players = []
     champions = []
     kills = []
@@ -252,33 +282,38 @@ def get_games_player_stats(list_game_end_geng_compet, list_players):
             player_data = game['participants'][index]
             player = player_data['riotIdGameName']
 
-            if player in list_players:
-                players.append(player)
-                champions.append(player_data['championName'])
-                kills.append(player_data['kills'])
-                assists.append(player_data['assists'])
-                deaths.append(player_data['deaths'])
-                kdas.append(player_data['challenges']['kda'])
+            #if player in list_players:
+            game_id.append(game['platformId'] +"_"+str(game['gameId']))
+            players.append(player)
+            champions.append(player_data['championName'] if player_data['championName'] != 'FiddleSticks' else 'Fiddlesticks')
+            kills.append(player_data['kills'])
+            assists.append(player_data['assists'])
+            deaths.append(player_data['deaths'])
+            kdas.append(player_data['challenges']['kda'])
+            try:
                 kill_participations.append(player_data['challenges']['killParticipation'])
-                damage_per_minutes.append(player_data['challenges']['damagePerMinute'])
-                gold_per_minutes.append(player_data['challenges']['goldPerMinute'])
-                team_damage_percentages.append(player_data['challenges']['teamDamagePercentage'])
-                plates_takens.append(player_data['challenges']['turretPlatesTaken'])
-                plates_losts.append(player_data['challenges']['turretTakedowns'])
-                enemy_jgl_camp_killeds.append(player_data['challenges']['enemyJungleMonsterKills'])
-                vision_score_per_minutes.append(player_data['challenges']['visionScorePerMinute'])
-                try : 
-                    pink_ward_time_coverage_in_ennemy_or_rivers.append(player_data['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf'])
-                except KeyError:
-                    pink_ward_time_coverage_in_ennemy_or_rivers.append(0)
-                control_wards_boughts.append(player_data['visionWardsBoughtInGame'])
-                wards_placeds.append(player_data['wardsPlaced'])
-                wards_killeds.append(player_data['wardsKilled'])
-                csm.append((player_data['totalMinionsKilled']+player_data['totalAllyJungleMinionsKilled']+player_data['totalEnemyJungleMinionsKilled'])/(game['gameDuration']/60))
-                wins.append(player_data['win'])
+            except KeyError:
+                kill_participations.append(0)
+            damage_per_minutes.append(player_data['challenges']['damagePerMinute'])
+            gold_per_minutes.append(player_data['challenges']['goldPerMinute'])
+            team_damage_percentages.append(player_data['challenges']['teamDamagePercentage'])
+            plates_takens.append(player_data['challenges']['turretPlatesTaken'])
+            plates_losts.append(player_data['challenges']['turretTakedowns'])
+            enemy_jgl_camp_killeds.append(player_data['challenges']['enemyJungleMonsterKills'])
+            vision_score_per_minutes.append(player_data['challenges']['visionScorePerMinute'])
+            try : 
+                pink_ward_time_coverage_in_ennemy_or_rivers.append(player_data['challenges']['controlWardTimeCoverageInRiverOrEnemyHalf'])
+            except KeyError:
+                pink_ward_time_coverage_in_ennemy_or_rivers.append(0)
+            control_wards_boughts.append(player_data['visionWardsBoughtInGame'])
+            wards_placeds.append(player_data['wardsPlaced'])
+            wards_killeds.append(player_data['wardsKilled'])
+            csm.append((player_data['totalMinionsKilled']+player_data['totalAllyJungleMinionsKilled']+player_data['totalEnemyJungleMinionsKilled'])/(game['gameDuration']/60))
+            wins.append(player_data['win'])
 
     # Create a DataFrame
     df = pd.DataFrame({
+        'GameId' : game_id,
         'Player': players,
         'Champion': champions,
         'KDA': kdas,
@@ -402,8 +437,6 @@ def create_heatmap(position_x,position_y,output:str="heatmap",map_file:str="Imag
         print("[+] Caculate the heatmap filter")
 
     #Calcul de la carte de chaleurs
-    st.write(len(position_x), len(position_y))
-
     heatmap, xedges, yedges = np.histogram2d(position_x, position_y, bins=bins, range=[[x_min,x_max],[y_min,y_max]])
     heatmap = gaussian_filter(heatmap, sigma=sigma)
     
@@ -491,7 +524,18 @@ def create_heatmap(position_x,position_y,output:str="heatmap",map_file:str="Imag
         os.remove("heatmap.png")
     base_image.save(str(output)+'.png')    
 
-# DATA IMPORTS
+def path_to_image_html(path): #crédit mascode 
+    '''
+     This function essentially convert the image url to 
+     '<img src="'+ path + '"/>' format. And one can put any
+     formatting adjustments to control the height, aspect ratio, size etc.
+     within as in the below example. 
+    '''
+
+    return '<img src="'+ path + '" style="max-height:50px;"/>'
+
+
+##################  DATA IMPORTS ####################################################################
 
 with open("list_game_end_geng_compet.json",'r') as file:
     list_game_end_geng_compet = json.load(file)
@@ -499,7 +543,6 @@ with open("list_game_timeline_geng_compet.json",'r') as file:
     list_game_timeline_geng_compet = json.load(file)
 
 df_events = pd.read_csv('df_event_v0_not_all_data.csv')
-list_players = ['GENKiin','GENCanyon','GENChovy','GENPeyz','GENLehends']
 
 Kiin_puuid = "Vpq3Y6Nns_bME-adpgmXfI89CIH3k0MCfDbrWZN2ASTuE8FlBit7rwbz3kzy_t4T8kgpGAo51asizA"
 Canyon_puuid = "C7SQvoTcKkF1B2dZxm9Oo5yiRFtp7M5t0QNur_5jiPm1EymkWiVlTQAISnUeqmvqOQcm1QvKjTIYkg"
@@ -508,6 +551,7 @@ Peyz_puuid  = "KSM9lFqeaD6TAzg5c2hkxxbMhJ01-6d_w6dNNiCaY-vsPRcjRbgXjq1EjhiaPpvW4
 Lehends_puuid = "sbe811AZXiBHw3UDQFn8TMHINYaKCNrMJQM0xUb-K7wBgHVvZ2p0EXVAOtWE-agBX3CNxyMwtjwuwA"
 
 list_puuid = [Kiin_puuid,Canyon_puuid,Chovy_puuid,Peyz_puuid,Lehends_puuid]
+list_players = ['GENKiin','GENCanyon','GENChovy','GENPeyz','GENLehends']
 
 # Stylish header
 st.set_page_config(layout="wide")
@@ -518,7 +562,7 @@ with st.sidebar.expander("Navigation"):
 
     page = st.radio('Choose a page',["Home Page","Draft Stats","Player Focus","Reporting In Game","SoloQ Overview"])
 
-#### PAGES ##### 
+################# PAGES ##################################################################################### 
 
 if page == 'Home Page':
     st.markdown(
@@ -549,34 +593,86 @@ if page == 'Home Page':
 
 elif page == "Draft Stats":
 
+    
     df_spring24_geng_draft = get_spring24_geng_draft()
+    df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players)
+
+    list_matchId_playoffs = df_spring24_geng_draft[df_spring24_geng_draft['ShownName'] == 'Spring Playoffs 24']['RiotPlatformGameId'].unique().tolist()
+    list_matchId_regular = df_spring24_geng_draft[df_spring24_geng_draft['ShownName'] == 'Spring Split 24']['RiotPlatformGameId'].unique().tolist()
+
+    list_competitions = df_spring24_geng_draft['ShownName'].unique().tolist() 
+    list_competitions.append('Spring + Playoffs 24')
+    competition_choice = st.sidebar.selectbox('Choose Step',list_competitions)
+
+    # scope player stats on choosen data
+    if competition_choice == 'Spring Playoffs 24':
+        df_players_stats_scope = df_players_stats[df_players_stats['GameId'].isin(list_matchId_playoffs)]
+        df_spring24_geng_draft_scope = df_spring24_geng_draft[df_spring24_geng_draft['ShownName'].isin([competition_choice])]
+    elif competition_choice == 'Spring Split 24':
+        df_players_stats_scope = df_players_stats[df_players_stats['GameId'].isin(list_matchId_regular)]
+        df_spring24_geng_draft_scope = df_spring24_geng_draft[df_spring24_geng_draft['ShownName'].isin([competition_choice])].reset_index(drop = True)
+    elif competition_choice == 'Spring + Playoffs 24':
+        df_players_stats_scope = df_players_stats
+        df_spring24_geng_draft_scope = df_spring24_geng_draft
 
 
-    st.title('Reporting Gen.G Draft')
-    col_tab1,col_tab2,col_tab3,col_tab4 = st.columns([3,3,3,5])
+    st.markdown(f"<h2 style='text-align: center;'>Statistics about Gen.G Drafts</h2><hr style='margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-    #scope on the choosen data
-    list_competitions = df_spring24_geng_draft['ShownName'].unique().tolist()
-    competition_choice = st.sidebar.multiselect('Choose Step',list_competitions, default = list_competitions)
-    df_spring24_geng_draft_scope = df_spring24_geng_draft[df_spring24_geng_draft['ShownName'].isin(competition_choice)]
+    col_tab1,col_tab2,col_tab3,col_tab4,col_tab5 = st.columns([3,3,3,3,3])
+    columns = [col_tab1,col_tab2,col_tab3,col_tab4,col_tab5]
 
-    # get the draft datas
-    most_blue_pick_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red = get_prio_position_draft(df_spring24_geng_draft_scope,'Gen.G')
-    # MOST PICKED ??? MOST B1 POSITON ?? 
- 
-    #display matrixes
-    st.write(matrix_percentages_blue)
-    st.write(matrix_percentages_red)
+    for player,col in zip(list_players,columns):
+        
+        #get the winrate for each player according to his role 
+        role_df = df_players_stats_scope[(df_players_stats_scope['Player'] == player)]
+        win_rates = role_df.groupby('Champion')['Win'].agg(['mean', 'size'])  # Aggregate mean and count
+        win_rates.columns = ['W/R', 'Games']
+        win_rates['W/R'] = (win_rates['W/R'] * 100).round(1)
+        win_rates = win_rates.sort_values(by='Games', ascending = False)
+        
+        # display images 
+        win_rates = win_rates.reset_index(drop = False)
+        win_rates['Champ'] = "https://ddragon.leagueoflegends.com/cdn/14.5.1/img/champion/" + win_rates['Champion'] + ".png"
+        win_rates.drop(columns=['Champion'], inplace = True)
+        columns = ['Champ'] + [col for col in win_rates.columns if col != 'Champ']
+        win_rates = win_rates[columns]   
+        win_rates = win_rates.style.format({"Champ":path_to_image_html, "W/R": lambda x: f"{x:.1f}"})
+        win_rates = win_rates.hide(axis = "index")
+        win_rates = win_rates.to_html(escape = False)
+   
+        win_rates_html = f'<div style="height: 500px; overflow: auto;">{win_rates}</div>'
 
+        # Display the HTML content in a Streamlit column
+        with col:
+            st.write(f"### {player} ")
+            st.markdown(win_rates_html, unsafe_allow_html=True)
+
+
+    
     with col_tab1:
-        st.write('Most pick B1')
-        st.write(position_b1_pick)
-    with col_tab2:
-        st.write('Most pick R3')
-        st.write(position_r3_pick)
+            # get the draft datas
+        most_blue_pick_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red = get_prio_position_draft(df_spring24_geng_draft_scope,'Gen.G')
+        # MOST PICKED ??? MOST B1 POSITON ?? 
+    
+        #display matrixes
+        matrix_percentages_red = matrix_percentages_red.reset_index( drop = False)
+        matrix_percentages_blue = matrix_percentages_blue.reset_index( drop = False)
+
+
+        df1_first_five = position_b1_pick.head().add_prefix('B1_')
+        df2_first_five = position_r3_pick.head().add_prefix('R3_')
+        df3_first_five = position_r5_pick.head().add_prefix('R5_')
+
+        # Concatenate the DataFrames horizontally
+        prio_pick = pd.concat([df1_first_five, df2_first_five, df3_first_five], axis=1)
+    
+        st.markdown(f'<h5>Advised to choose Split + Playoffs for this table </h5>', unsafe_allow_html = True)
+        st.write(prio_pick)
+
     with col_tab3:
-        st.write('Most pick R5')
-        st.write(position_r5_pick)
+        st.write(matrix_percentages_blue)
+    with col_tab5:
+        st.write(matrix_percentages_red)
 
 elif page == "Reporting In Game":
     
@@ -585,16 +681,16 @@ elif page == "Reporting In Game":
 elif page == "SoloQ Overview":
    
     st.title('Reporting SoloQ')
-
+    df_spring24_geng_draft = get_spring24_geng_draft()
+    df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players)  #from list of dict to all GenG players stats only
     df_events = get_df_event(list_game_timeline_geng_compet)
-    df_events['x'] = df_events['x']
-    df_events['y'] = df_events['y']
+    df_events = map_id_to_names(df_events,df_players_stats)
 
-    
+    st.write(df_events)
+
+
     create_heatmap(df_events['x'].tolist(),df_events['y'].tolist(), debug = False)
     st.write('Good')
-
-
 
 elif page == "Player Focus":
  
@@ -609,14 +705,13 @@ elif page == "Player Focus":
 
 
     df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players) #from list of dict to all GenG players stats only
-    st.write(df_players_stats)
     df_players_stats_scope = df_players_stats[df_players_stats['Player'] == player] #focus on choosen player
     
     with col_tab2:
 
         # PLAYER WISE STATS
         df_player, df_player_vision = player_stats(df_players_stats_scope)
-        st.markdown(f"<h2 style='text-align: center;'>{player} Statistics</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='text-align: center;'>{player} Statistics</h2><hr style='margin-bottom: 20px;'>", unsafe_allow_html=True)
         st.write('Global Statistics')
         st.write(df_player)
         
