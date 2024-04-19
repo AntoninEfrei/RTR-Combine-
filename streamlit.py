@@ -220,7 +220,7 @@ def get_df_event(list_game_timeline_geng_compet):
                         list_dict_events.append(dict_events)     
 
         except KeyError:
-            print(game['gameId'])
+            continue
 
     return pd.DataFrame(list_dict_events)
 
@@ -592,7 +592,7 @@ elif page == "SoloQ Overview":
 
     
     create_heatmap(df_events['x'].tolist(),df_events['y'].tolist(), debug = False)
-    
+    st.write('Good')
 
 
 
@@ -609,27 +609,28 @@ elif page == "Player Focus":
 
 
     df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players) #from list of dict to all GenG players stats only
+    st.write(df_players_stats)
     df_players_stats_scope = df_players_stats[df_players_stats['Player'] == player] #focus on choosen player
     
     with col_tab2:
 
         # PLAYER WISE STATS
         df_player, df_player_vision = player_stats(df_players_stats_scope)
-        st.markdown(f"<h2 style='text-align: center;'>{player} stats</h2>", unsafe_allow_html=True)
-        st.write('Global Stats')
+        st.markdown(f"<h2 style='text-align: center;'>{player} Statistics</h2>", unsafe_allow_html=True)
+        st.write('Global Statistics')
         st.write(df_player)
         
-        st.write('Vision Stats')
+        st.write('Vision Statistics')
         st.write(df_player_vision)
 
 
     # CHAMPIONS WISE STATS
     st.title('Champion Focus')
-    st.write('Champion Stats')
+    st.write('Champion Statistics')
     df_player_champion_stats = player_champion_stats(df_players_stats_scope)
     st.write(df_player_champion_stats)
     if player in ['GENLehends','GENCanyon']:
-        st.write('Vision Stats')
+        st.write('Vision Statistics')
         df_player_vision_stats = player_champion_vision_stats(df_players_stats_scope)
         st.write(df_player_vision_stats)
 
