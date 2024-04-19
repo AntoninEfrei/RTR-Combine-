@@ -647,7 +647,7 @@ elif page == "Draft Stats":
             st.write(f"### {player} ")
             st.markdown(win_rates_html, unsafe_allow_html=True)
 
-
+    
     
     with col_tab1:
             # get the draft datas
@@ -665,13 +665,14 @@ elif page == "Draft Stats":
 
         # Concatenate the DataFrames horizontally
         prio_pick = pd.concat([df1_first_five, df2_first_five, df3_first_five], axis=1)
-    
-        st.markdown(f'<h5>Advised to choose Split + Playoffs for this table </h5>', unsafe_allow_html = True)
+        st.markdown(f'<h5>TOP 5 PRIO PICKS Advised to choose Split + Playoffs for this table </h5>', unsafe_allow_html = True)
         st.write(prio_pick)
 
     with col_tab3:
+        st.markdown(f'<h5>Matrix Blue</h5>', unsafe_allow_html = True)
         st.write(matrix_percentages_blue)
     with col_tab5:
+        st.markdown(f'<h5>Matrix Red</h5>', unsafe_allow_html = True)
         st.write(matrix_percentages_red)
 
 elif page == "Reporting In Game":
