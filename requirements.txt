@@ -1,1 +1,3 @@
 mwclient
+scipy
+matplotlib
