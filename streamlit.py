@@ -560,7 +560,7 @@ st.set_page_config(layout="wide")
 with st.sidebar.expander("Navigation"):
     # Display checkboxes for options within the expander
 
-    page = st.radio('Choose a page',["Home Page","Draft Stats","Player Focus","Reporting In Game","SoloQ Overview"])
+    page = st.radio('Choose a page',["Home Page","Player Focus","Draft Stats","Team Stats","don't click"])
 
 ################# PAGES ##################################################################################### 
 
@@ -568,7 +568,6 @@ if page == 'Home Page':
     st.markdown(
     """
     <h1 style='text-align: center; color: #f63366;'>Gen.G Reporting</h1>
-    <h4 style='text-align: center; color: #ffffff;'>LIGHT THEME RECOMMENDED</h4>
     <h3 style='text-align: center;'>Running the Rift project made By Gulldiz</h3>
     <hr style='margin-bottom: 20px;'>
     """,
@@ -580,8 +579,19 @@ if page == 'Home Page':
     st.markdown('')
     st.markdown('')
 
-    
-    
+    st.write("I also wanted to let you know that I haven't been able to work properly on the project as this week was the week of preparation of the french Open Tour - I had a lot of work. I'm kinda sad that I couldn't do better and I know there are SO MANY way of improving stats + insights. Lack of time is not a excuse it's my fault on my scheduling.")
+    st.markdown('')
+    st.markdown('')
+    st.markdown('') 
+ 
+    st.write("Improvements I thought about :")
+    st.write("- Compare Player / Team Stats to other LCK teams (Major leagues?)")
+    st.write("- Heatmap by player and by timeline of the game")
+    st.write("- Adding a way to check every single draft one by one")
+    st.write("- SoloQ Tracking")
+    st.write("- Global aesthetic xd")
+    st.write("- Analyzing automatically all stats to create a player profile depending on average stats")
+    st.write("- I'll stop here ^^.")
     st.markdown('')
     st.markdown('')
     st.markdown('')
@@ -646,10 +656,16 @@ elif page == "Draft Stats":
         with col:
             st.write(f"### {player} ")
             st.markdown(win_rates_html, unsafe_allow_html=True)
+    st.markdown("")
+    st.markdown("")
+    st.markdown("")
+    st.markdown("")
+
+    st.markdown(f"<h4 style='text-align: center;'>Priorities Statistics (Picks&Positions)</h4><hr style='margin-top: 20px;'>", unsafe_allow_html=True)
 
     
-    
-    with col_tab1:
+    col1,col2,col3 = st.columns([5,3,2])
+    with col1:
             # get the draft datas
         most_blue_pick_champions, position_b1_pick, position_r3_pick, position_r5_pick, matrix_counts_blue, matrix_counts_red, matrix_percentages_blue, matrix_percentages_red = get_prio_position_draft(df_spring24_geng_draft_scope,'Gen.G')
         # MOST PICKED ??? MOST B1 POSITON ?? 
@@ -665,38 +681,80 @@ elif page == "Draft Stats":
 
         # Concatenate the DataFrames horizontally
         prio_pick = pd.concat([df1_first_five, df2_first_five, df3_first_five], axis=1)
-        st.markdown(f'<h5>TOP 5 PRIO PICKS Advised to choose Split + Playoffs for this table </h5>', unsafe_allow_html = True)
+        st.markdown(f'<h5>Top 5 prio picks. </h5>', unsafe_allow_html = True)
+        st.write('!! Advised to choose Split + Playoffs for this table !!')
         st.write(prio_pick)
 
-    with col_tab3:
-        st.markdown(f'<h5>Matrix Blue</h5>', unsafe_allow_html = True)
+    with col2:
+        st.markdown(f'<h5>Blue Side Position priorities</h5>', unsafe_allow_html = True)
         st.write(matrix_percentages_blue)
-    with col_tab5:
-        st.markdown(f'<h5>Matrix Red</h5>', unsafe_allow_html = True)
+    with col3:
+        st.markdown(f'<h5>Red Side Position priorities</h5>', unsafe_allow_html = True)
         st.write(matrix_percentages_red)
 
-elif page == "Reporting In Game":
+elif page == "Team Stats":
     
-    st.title('Reporting In Game')
-  
-elif page == "SoloQ Overview":
+    df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players)
+    df_players_stats_scope = df_players_stats[df_players_stats['Player'].isin(list_players)]    
+
+    st.markdown(f"<h2 style='text-align: center;'> Gen.G Stats </h2><hr style='margin-bottom: 20px;'>", unsafe_allow_html=True)
+    col_1,col_2 = st.columns([1,1])
+    with col_1:
+        
+        numeric_columns = df_players_stats.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        selected_columns = st.selectbox('Select a statistic to focus on ', numeric_columns)
+
+        if selected_columns:
+
+            mean_values = df_players_stats_scope.groupby('Player')[selected_columns].mean().sort_values(ascending=False)
+            # Display the mean values
+            st.write(f"Average values for {selected_columns} of Gen.G players:")
+            st.write(mean_values.rename("Average"))
+
+    st.markdown("")
+    st.markdown("")
+    st.markdown("")
+    st.markdown("")
+
+    st.markdown(f"<h2 style='text-align: left;'> Heatmaps </h2><hr style='margin-bottom: 20px;'>", unsafe_allow_html=True)
+    col_tab1,col_tab2,col_tab3,col_tab4 = st.columns([2,2,2,2])
+    with col_tab1:
+        st.markdown(f'<h5>Kills made in 2024 season by Gen.G</h5>', unsafe_allow_html = True)
+
+        st.image('Image\kill_heatmap_team.png', use_column_width=True)
+    with col_tab3:
+        
+        st.markdown(f'<h5>Deaths in 2024 season by Gen.G</h5>', unsafe_allow_html = True)
+        st.image('Image\deaths_heatmap_team.png', use_column_width=True)
+
+    st.markdown('')
+    st.markdown('')
+    st.markdown('')
+    st.markdown('')
+    st.markdown('')
+    st.markdown('')
+    st.write('Heatmaps made automatically with a script')
+    st.write('Note : wrong map version (old one)')
    
-    st.title('Reporting SoloQ')
-    df_spring24_geng_draft = get_spring24_geng_draft()
-    df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players)  #from list of dict to all GenG players stats only
-    df_events = get_df_event(list_game_timeline_geng_compet)
-    df_events = map_id_to_names(df_events,df_players_stats)
-
-    st.write(df_events)
+elif page == "don't click":
 
 
-    create_heatmap(df_events['x'].tolist(),df_events['y'].tolist(), debug = True)
-    st.write('Good')
+    st.write('nothing to see here get out')
+    #st.title('Reporting SoloQ')
+    # df_spring24_geng_draft = get_spring24_geng_draft()
+    # df_players_stats = get_games_player_stats(list_game_end_geng_compet,list_players)  #from list of dict to all GenG players stats only
+    # df_events = get_df_event(list_game_timeline_geng_compet)
+    # df_events = map_id_to_names(df_events,df_players_stats)
+
+    # st.write(df_events)
+    # df_events_scope = df_events[df_events['assists'].apply(lambda x: x is not None and any(item in x for item in list_players))]
+
+    # df_events_scope
+    #create_heatmap(df_events_scope['x'].tolist(),df_events_scope['y'].tolist(), debug = True)
 
 elif page == "Player Focus":
  
     col_tab1,col_tab2 = st.columns([3,8])
-   
     with col_tab1:
 
         with st.expander("Choose Player", expanded = False):
@@ -709,10 +767,12 @@ elif page == "Player Focus":
     df_players_stats_scope = df_players_stats[df_players_stats['Player'] == player] #focus on choosen player
     
     with col_tab2:
-
+        _,_,col,_,_ = st.columns(5)
         # PLAYER WISE STATS
         df_player, df_player_vision = player_stats(df_players_stats_scope)
-        st.markdown(f"<h2 style='text-align: center;'>{player} Statistics</h2><hr style='margin-bottom: 20px;'>", unsafe_allow_html=True)
+        with col:
+            st.image(f'Image\{player}.png', use_column_width=False, width = 200)
+        st.markdown(f"<hr style='margin-bottom: 20px;'>", unsafe_allow_html=True)
         st.write('Global Statistics')
         st.write(df_player)
         
@@ -721,13 +781,15 @@ elif page == "Player Focus":
 
 
     # CHAMPIONS WISE STATS
-    st.title('Champion Focus')
-    st.write('Champion Statistics')
-    df_player_champion_stats = player_champion_stats(df_players_stats_scope)
-    st.write(df_player_champion_stats)
-    if player in ['GENLehends','GENCanyon']:
-        st.write('Vision Statistics')
-        df_player_vision_stats = player_champion_vision_stats(df_players_stats_scope)
-        st.write(df_player_vision_stats)
-
-    # HEAT MAPS 
+    st.markdown(f"<h2 style='text-align: leftr;'>Champion Focus</h2><hr style='margin-top: 20px;'>", unsafe_allow_html=True)
+    col1,col2 = st.columns(2)
+    
+    with col1:
+        st.write('Champion Statistics')
+        df_player_champion_stats = player_champion_stats(df_players_stats_scope)
+        st.write(df_player_champion_stats)
+        if player in ['GENLehends','GENCanyon']:
+            with col2:
+                st.write('Vision Statistics')
+                df_player_vision_stats = player_champion_vision_stats(df_players_stats_scope)
+                st.write(df_player_vision_stats)
