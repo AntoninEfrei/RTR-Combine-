@@ -721,11 +721,11 @@ elif page == "Team Stats":
     with col_tab1:
         st.markdown(f'<h5>Kills made in 2024 season by Gen.G</h5>', unsafe_allow_html = True)
 
-        st.image('Image\kill_heatmap_team.png', use_column_width=True)
+        st.image('kill_heatmap_team.png', use_column_width=True)
     with col_tab3:
         
         st.markdown(f'<h5>Deaths in 2024 season by Gen.G</h5>', unsafe_allow_html = True)
-        st.image('Image\deaths_heatmap_team.png', use_column_width=True)
+        st.image('deaths_heatmap_team.png', use_column_width=True)
 
     st.markdown('')
     st.markdown('')
@@ -771,7 +771,7 @@ elif page == "Player Focus":
         # PLAYER WISE STATS
         df_player, df_player_vision = player_stats(df_players_stats_scope)
         with col:
-            st.image(f'Image\{player}.png', use_column_width=False, width = 200)
+            st.image(f'{player}.png', use_column_width=False, width = 200)
         st.markdown(f"<hr style='margin-bottom: 20px;'>", unsafe_allow_html=True)
         st.write('Global Statistics')
         st.write(df_player)
